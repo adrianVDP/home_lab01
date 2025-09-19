@@ -1,0 +1,6 @@
+#foldere temporare
+temp/
+
+#fisiere de configurare locala
+.env
+EOF
