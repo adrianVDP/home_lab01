@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Foundation stack - ECR, S3 artifact bucket, IAM roles for pipeline
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: feature-flags
+  Environment:
+    Type: String
+    Default: dev
+
+Resources:
+
+  LambdaECR:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${ProjectName}-lambda"
+      ImageScanningConfiguration: { ScanOnPush: true }
+      ImageTagMutability: IMMUTABLE
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # Asigură unicitate globală (evită conflicte la bucket name):
+      BucketName: !Sub "${ProjectName}-${Environment}-${AWS::AccountId}-${AWS::Region}-artifacts"
+      VersioningConfiguration: { Status: Enabled }
+
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-CodeBuildRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codebuild.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        # Adaugă asta doar dacă vrei ca build-ul să poată face deploy CFn:
+        # - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-${Environment}-CodePipelineRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codepipeline.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess   # <— underscore!
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+Outputs:
+  ECRRepoUri:
+    Value: !GetAtt LambdaECR.RepositoryUri
+    Export: { Name: !Sub "${ProjectName}-${Environment}-ECRRepoUri" }
+  ArtifactBucketName:
+    Value: !Ref ArtifactBucket
+    Export: { Name: !Sub "${ProjectName}-${Environment}-ArtifactBucket" }
+  CodeBuildRoleArn:
+    Value: !GetAtt CodeBuildRole.Arn
+  CodePipelineRoleArn:
+    Value: !GetAtt CodePipelineRole.Arn
