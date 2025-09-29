@@ -1,8 +1,0 @@
-AWSTemplateFormatVersion: "2010-09-09"
-Description: "Primul meu format CFN - bucket S3"
-
-Resources:
-  MyBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: my-first-cloudformation-bucket-ab020892
